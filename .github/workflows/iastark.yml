@@ -2,13 +2,19 @@ name: IASTARK - Teste inicial
 
 on:
   workflow_dispatch:
+    inputs:
+      autorizar_internet:
+        description: "Autorizar leitura de noticias publicas nesta execucao"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   executar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     steps:
@@ -16,9 +22,11 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Preparar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Iniciar IASTARK
+        env:
+          IASTARK_AUTORIZAR_INTERNET: ${{ inputs.autorizar_internet }}
         run: python iastark.py
