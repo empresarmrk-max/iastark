@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       autorizar_internet:
-        description: "Autorizar leitura de noticias publicas nesta execucao"
+        description: "Autorizar leitura e armazenamento de noticias publicas nesta execucao"
         type: boolean
         required: false
         default: false
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: iastark-memoria-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   executar:
@@ -20,6 +24,8 @@ jobs:
     steps:
       - name: Baixar o codigo
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       - name: Preparar Python
         uses: actions/setup-python@v6
@@ -30,3 +36,20 @@ jobs:
         env:
           IASTARK_AUTORIZAR_INTERNET: ${{ inputs.autorizar_internet }}
         run: python iastark.py
+
+      - name: Guardar memoria no GitHub
+        if: ${{ inputs.autorizar_internet }}
+        shell: bash
+        run: |
+          test -f dados/noticias.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- dados/noticias.json
+          if git diff --cached --quiet; then
+            echo "A memoria ja esta atualizada."
+          else
+            git commit -m "Atualizar memoria de noticias publicas"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+            echo "Memoria salva no GitHub."
+          fi
+          
