@@ -8,6 +8,8 @@ on:
         type: boolean
         required: false
         default: false
+  schedule:
+    - cron: "7,22,37,52 * * * *"
 
 permissions:
   contents: write
@@ -18,8 +20,11 @@ concurrency:
 
 jobs:
   executar:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.IASTARK_COLETA_AUTOMATICA == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    env:
+      IASTARK_AUTORIZAR_INTERNET: ${{ github.event_name == 'schedule' || inputs.autorizar_internet }}
 
     steps:
       - name: Baixar o codigo
@@ -33,12 +38,10 @@ jobs:
           python-version: "3.12"
 
       - name: Iniciar IASTARK
-        env:
-          IASTARK_AUTORIZAR_INTERNET: ${{ inputs.autorizar_internet }}
         run: python iastark.py
 
       - name: Guardar memoria no GitHub
-        if: ${{ inputs.autorizar_internet }}
+        if: ${{ env.IASTARK_AUTORIZAR_INTERNET == 'true' }}
         shell: bash
         run: |
           test -f dados/noticias.json
@@ -52,4 +55,3 @@ jobs:
             git push origin "HEAD:${GITHUB_REF_NAME}"
             echo "Memoria salva no GitHub."
           fi
-          
