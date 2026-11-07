@@ -1,18 +1,66 @@
 import os
-import platform
-from datetime import datetime, timezone
+import sys
+import xml.etree.ElementTree as ET
+from urllib.request import Request, urlopen
+
+FEED_URL = "https://agenciabrasil.ebc.com.br/rss/ultimasnoticias/feed.xml"
+MAX_BYTES = 2_000_000
+
+
+def buscar_noticias():
+    pedido = Request(
+        FEED_URL,
+        headers={
+            "User-Agent": "IASTARK/0.1",
+            "Accept": "application/rss+xml, application/xml, text/xml",
+        },
+    )
+    with urlopen(pedido, timeout=20) as resposta:
+        dados = resposta.read(MAX_BYTES + 1)
+
+    if len(dados) > MAX_BYTES:
+        raise ValueError("A resposta ultrapassou o limite de 2 MB.")
+    if b"<!DOCTYPE" in dados.upper() or b"<!ENTITY" in dados.upper():
+        raise ValueError("O feed trouxe uma estrutura XML inesperada.")
+
+    noticias = ET.fromstring(dados).findall("./channel/item")[:5]
+    if not noticias:
+        raise ValueError("A fonte nao retornou noticias em formato RSS.")
+    return noticias
+
+
+def texto(item, campo):
+    return " ".join((item.findtext(campo) or "Nao informado").split())
 
 
 def iastark():
-    na_nuvem = os.getenv("GITHUB_ACTIONS") == "true"
-    agora = datetime.now(timezone.utc)
+    print("IASTARK: leitor de noticias.")
+    autorizado = os.getenv(
+        "IASTARK_AUTORIZAR_INTERNET", "false"
+    ).strip().lower() == "true"
 
-    print("IASTARK: programa iniciado.")
-    print("Python:", platform.python_version())
-    print("Executando no GitHub Actions:", na_nuvem)
-    print("Data e hora UTC:", agora.isoformat())
-    print("Coleta de informações: desativada.")
+    if not autorizado:
+        print("Consulta de noticias nao autorizada.")
+        print("Marque a autorizacao em Run workflow para permitir a consulta.")
+        return 0
+
+    print("Autorizacao recebida para esta execucao.")
+    print("Consultando o RSS da Agencia Brasil...")
+
+    try:
+        noticias = buscar_noticias()
+    except (OSError, ET.ParseError, ValueError) as erro:
+        print(f"Falha ao consultar a fonte: {erro}", file=sys.stderr)
+        return 1
+
+    for numero, item in enumerate(noticias, start=1):
+        print(f"\n{numero}. {texto(item, 'title')}")
+        print("Publicado:", texto(item, "pubDate"))
+        print("Link:", texto(item, "link"))
+
+    print(f"\nConsulta concluida: {len(noticias)} noticias exibidas.")
+    return 0
 
 
 if __name__ == "__main__":
-    iastark()
+    sys.exit(iastark())
