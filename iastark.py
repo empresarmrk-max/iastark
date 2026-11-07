@@ -2,6 +2,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from urllib.request import Request, urlopen
+from memoria import salvar_noticias
 
 FEED_URL = "https://agenciabrasil.ebc.com.br/rss/ultimasnoticias/feed.xml"
 MAX_BYTES = 2_000_000
@@ -23,7 +24,7 @@ def buscar_noticias():
     if b"<!DOCTYPE" in dados.upper() or b"<!ENTITY" in dados.upper():
         raise ValueError("O feed trouxe uma estrutura XML inesperada.")
 
-    noticias = ET.fromstring(dados).findall("./channel/item")[:5]
+    noticias = ET.fromstring(dados).findall("./channel/item")
     if not noticias:
         raise ValueError("A fonte nao retornou noticias em formato RSS.")
     return noticias
@@ -49,16 +50,28 @@ def iastark():
 
     try:
         noticias = buscar_noticias()
+        registros = [
+            {
+                "titulo": texto(item, "title"),
+                "link": texto(item, "link"),
+                "fonte": "Agencia Brasil",
+                "publicado_em": texto(item, "pubDate"),
+            }
+            for item in noticias
+        ]
+        novas, total = salvar_noticias(registros)
     except (OSError, ET.ParseError, ValueError) as erro:
-        print(f"Falha ao consultar a fonte: {erro}", file=sys.stderr)
+        print(f"Falha ao consultar ou preparar a memoria: {erro}", file=sys.stderr)
         return 1
 
-    for numero, item in enumerate(noticias, start=1):
+    for numero, item in enumerate(noticias[:5], start=1):
         print(f"\n{numero}. {texto(item, 'title')}")
         print("Publicado:", texto(item, "pubDate"))
         print("Link:", texto(item, "link"))
 
-    print(f"\nConsulta concluida: {len(noticias)} noticias exibidas.")
+    print(f"\nConsulta concluida: {len(noticias)} noticias recebidas.")
+    print(f"Novas na memoria: {novas}. Total no arquivo: {total}.")
+    print("Arquivo preparado: dados/noticias.json")
     return 0
 
 
