@@ -1,0 +1,24 @@
+name: IASTARK - Teste inicial
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  executar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v6
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Iniciar IASTARK
+        run: python iastark.py
